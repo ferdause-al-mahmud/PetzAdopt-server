@@ -5,12 +5,10 @@ const cors = require('cors')
 const cookieParser = require('cookie-parser')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb')
 const jwt = require('jsonwebtoken')
-
 const port = process.env.PORT || 8000
 
-// middleware
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: ['http://localhost:5173'],
     credentials: true,
     optionSuccessStatus: 200,
 }
@@ -38,7 +36,6 @@ const verifyToken = async (req, res, next) => {
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.dnxxphb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
-
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -50,11 +47,15 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
 
-        // auth related api
+        const petsCollection = client.db("petzAdopt").collection("pets");
+
+
+
+
         app.post('/jwt', async (req, res) => {
             const user = req.body
             const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-                expiresIn: '365d',
+                expiresIn: '1h',
             })
             res
                 .cookie('token', token, {
@@ -79,39 +80,13 @@ async function run() {
                 res.status(500).send(err)
             }
         })
-
-        // // save a user data in db
-        // app.put('/user', async (req, res) => {
-        //   const user = req.body
-        //   const query = { email: user?.email }
-        //   // check if user already exists in db
-        //   const isExist = await usersCollection.findOne(query)
-        //   if (isExist) {
-        //     if (user.status === 'Requested') {
-        //       // if existing user try to change his role
-        //       const result = await usersCollection.updateOne(query, {
-        //         $set: { status: user?.status },
-        //       })
-        //       return res.send(result)
-        //     } else {
-        //       // if existing user login again
-        //       return res.send(isExist)
-        //     }
-        //   }
-
-        //   // save user for the first time
-        //   const options = { upsert: true }
-        //   const updateDoc = {
-        //     $set: {
-        //       ...user,
-        //       timestamp: Date.now(),
-        //     },
-        //   }
-        //   const result = await usersCollection.updateOne(query, updateDoc, options)
-        //   res.send(result)
-        // })
-
-
+        app.get('/pets', async (req, res) => {
+            const options = {
+                sort: { addedTime: -1 },
+            };
+            const result = await petsCollection.find({}, options).toArray();
+            res.send(result);
+        });
 
         // Send a ping to confirm a successful connection
         // await client.db('admin').command({ ping: 1 })
@@ -125,9 +100,9 @@ async function run() {
 run().catch(console.dir)
 
 app.get('/', (req, res) => {
-    res.send('Hello from StayVista Server..')
+    res.send('Hello from PetzAdopt Server..')
 })
 
 app.listen(port, () => {
-    console.log(`StayVista is running on port ${port}`)
+    console.log(`PetzAdopt is running on port ${port}`)
 })
