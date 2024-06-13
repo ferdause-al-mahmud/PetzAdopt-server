@@ -94,6 +94,64 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/pets-added/:email', async (req, res) => {
+            const email = req?.params?.email;
+            const query = { adderEmail: email };
+            const result = await petsCollection.find(query).toArray();
+            res.send(result)
+        })
+        //pet adding
+        app.post('/pets', async (req, res) => {
+            const item = req.body;
+            const result = await petsCollection.insertOne(item);
+            res.send(result);
+        });
+        //pet updating
+        app.put('/pets/update/:id', async (req, res) => {
+            const id = req.params.id;
+            const updatedDetails = req.body;
+
+            try {
+                const filter = { _id: new ObjectId(id) };
+                const updateDoc = { $set: updatedDetails };
+
+                const result = await petsCollection.updateOne(filter, updateDoc);
+                if (result.modifiedCount === 1) {
+                    res.json({ message: 'Pet details updated successfully' });
+                } else {
+                    res.status(404).json({ message: 'Pet not found or details already updated' });
+                }
+            } catch (error) {
+                console.error('Error updating pet details:', error);
+                res.status(500).json({ message: 'An error occurred while updating the pet details' });
+            }
+        });
+        //updating adoption status
+        app.patch('/pets/adopt/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    adopted: true
+                }
+            }
+            const result = await petsCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+        //pet deleting
+        app.delete('/pets/delete/:id', async (req, res) => {
+            const id = req.params.id;
+            try {
+                const result = await petsCollection.deleteOne({ _id: new ObjectId(id) });
+                if (result.deletedCount === 1) {
+                    res.json({ message: 'Pet deleted successfully' });
+                }
+            } catch (error) {
+                console.error('Error deleting pet:', error);
+                res.status(500).json({ message: 'An error occurred while deleting the pet' });
+            }
+        });
+        //adopting
         app.post('/adopts', async (req, res) => {
             const requestedPet = req.body;
             const query = { email: requestedPet?.email, petId: requestedPet?.petId };
