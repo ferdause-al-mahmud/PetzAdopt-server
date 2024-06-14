@@ -45,19 +45,19 @@ async function run() {
         })
 
         const verifyToken = (req, res, next) => {
-            console.log('inside verify token', req.headers.authorization);
+            // console.log('inside verify token', req.headers.authorization);
             if (!req.headers.authorization) {
-                console.log('No authorization header');
+                // console.log('No authorization header');
                 return res.status(401).send({ message: 'unauthorized access' });
             }
             const token = req.headers.authorization.split(' ')[1];
             jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
                 if (err) {
-                    console.log('Token verification failed', err);
+                    // console.log('Token verification failed', err);
                     return res.status(401).send({ message: 'unauthorized access' });
                 }
                 req.decoded = decoded;
-                console.log('Token verified successfully');
+                // console.log('Token verified successfully');
                 next();
             });
         };
@@ -68,16 +68,14 @@ async function run() {
             let name = req.query?.name;
             let query = { adopted: false };
 
-            // Convert name to lowercase for case-insensitive search
             if (name) {
                 name = new RegExp(name, 'i');
                 query = { ...query, petName: name };
             }
-            console.log(name)
             if (category) {
                 query = { ...query, category: category };
             }
-            console.log(query)
+            // console.log(query)
             const options = {
                 sort: { addedTime: -1 },
             };
@@ -88,7 +86,7 @@ async function run() {
 
         app.get('/pets/:id', async (req, res) => {
             const petId = req?.params?.id;
-            console.log(petId)
+            // console.log(petId)
             const query = { _id: new ObjectId(petId) };
             const result = await petsCollection.findOne(query);
             res.send(result)
@@ -158,7 +156,7 @@ async function run() {
 
             const isExist = await adoptCollection.findOne(query);
             if (isExist) {
-                console.log("already exist");
+                // console.log("already exist");
                 res.status(409).send({ message: "Already exist" });
             } else {
                 const result = await adoptCollection.insertOne(requestedPet);
@@ -171,7 +169,7 @@ async function run() {
 
         app.get('/campaigns', async (req, res) => {
             const options = {
-                sort: { addingTime: -1 },
+                sort: { addedTime: -1 },
             };
             const result = await campaignCollection.find({}, options).toArray();
             res.send(result);
@@ -183,8 +181,62 @@ async function run() {
             const result = await campaignCollection.findOne(query);
             res.send(result)
         })
+        app.get('/campaigns/my-added/:email', async (req, res) => {
+            const email = req?.params?.email;
+            // console.log(campaignId)
+            const query = { adderEmail: email };
+            const result = await campaignCollection.find(query).toArray();
+            res.send(result)
+        })
+        app.post('/campaign', async (req, res) => {
+            const campaign = req.body;
+            const result = await campaignCollection.insertOne(campaign);
+            res.send(result);
+        });
 
+        app.patch('/campaign/pause/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id)
+            const filter = { _id: new ObjectId(id) };
+            try {
+                const campaign = await campaignCollection.findOne(filter);
+                if (!campaign) {
+                    return res.status(404).send({ error: 'Campaign not found' });
+                }
+                console.log(campaign)
+                const updatedDoc = {
+                    $set: {
+                        pause: !campaign.pause
+                    }
+                };
 
+                const result = await campaignCollection.updateOne(filter, updatedDoc);
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ error: 'An error occurred while updating the campaign' });
+            }
+        })
+
+        //update campaign
+        app.put('/campaign/update/:id', async (req, res) => {
+            const id = req.params.id;
+            const updatedDetails = req.body;
+
+            try {
+                const filter = { _id: new ObjectId(id) };
+                const updateDoc = { $set: updatedDetails };
+
+                const result = await campaignCollection.updateOne(filter, updateDoc);
+                if (result.modifiedCount === 1) {
+                    res.json({ message: 'Campaign details updated successfully' });
+                } else {
+                    res.status(404).json({ message: 'Campaign not found or details already updated' });
+                }
+            } catch (error) {
+                console.error('Error updating Campaign details:', error);
+                res.status(500).json({ message: 'An error occurred while updating the Campaign details' });
+            }
+        });
         // save a user data in db
         app.put('/user', async (req, res) => {
             const user = req.body
@@ -240,10 +292,39 @@ async function run() {
 
         app.post('/payments', async (req, res) => {
             const payment = req.body;
-            const paymentResult = await paymentCollection.insertOne(payment);
-            res.send(paymentResult)
-        })
+            const { campaignId, amount } = payment;
+            const amountNumber = parseFloat(amount);
 
+            const query = {
+                _id: new ObjectId(campaignId)
+            }
+            try {
+                const paymentResult = await paymentCollection.insertOne(payment);
+                const campaign = await campaignCollection.findOne(query);
+                const donatedAmountNumber = parseFloat(campaign.donatedAmount || 0);
+                const newDonatedAmount = amountNumber + donatedAmountNumber;
+
+                const updatedCampaign = await campaignCollection.findOneAndUpdate(
+                    query,
+                    { $set: { donatedAmount: newDonatedAmount.toString() } },
+                    { returnOriginal: false }
+                );
+
+                res.send(updatedCampaign.value);
+            } catch (error) {
+                console.error("Error processing payment:", error);
+                res.status(500).send("Error processing payment");
+            }
+
+        });
+        app.get('/donors/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id)
+            const query = { campaignId: id };
+            const result = await paymentCollection.find(query).toArray();
+            res.send(result)
+
+        })
         // Send a ping to confirm a successful connection
         // await client.db('admin').command({ ping: 1 })
         console.log(
