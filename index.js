@@ -128,14 +128,19 @@ async function run() {
         app.patch('/pets/adopt/:id', async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
+            const adopt = await petsCollection.findOne(filter);
             const updatedDoc = {
                 $set: {
-                    adopted: true
+                    adopted: !(adopt?.adopted)
                 }
             }
             const result = await petsCollection.updateOne(filter, updatedDoc);
             res.send(result);
         })
+
+
+
+
         //pet deleting
         app.delete('/pets/delete/:id', async (req, res) => {
             const id = req.params.id;
@@ -161,6 +166,52 @@ async function run() {
             } else {
                 const result = await adoptCollection.insertOne(requestedPet);
                 res.status(201).send(result);
+            }
+        });
+        app.get('/adoption-requests/:email', async (req, res) => {
+            const email = req?.params?.email;
+            const query = { ownerEmail: email };
+            const result = await adoptCollection.find(query).toArray();
+            res.send(result);
+        });
+
+
+        app.put('/adoption-requests/accept', async (req, res) => {
+            const adoption = req.body;
+            const { petId, _id } = adoption;
+            const query = { _id: new ObjectId(petId) }
+            const adoptionQuery = { _id: new ObjectId(_id) }
+
+
+            const updateDoc = {
+                $set: {
+                    adopted: true
+                }
+            };
+
+            const updateAdoptionDoc = {
+                $set: {
+                    status: "Adopted"
+                }
+            };
+            const result = await petsCollection.updateOne(query, updateDoc);
+            const AdoptionResult = await adoptCollection.updateOne(adoptionQuery, updateAdoptionDoc);
+
+
+            console.log(result, AdoptionResult)
+            res.send({ result, AdoptionResult })
+        })
+
+        app.delete('/adoption-request/delete/:id', async (req, res) => {
+            const id = req.params.id;
+            try {
+                const result = await adoptCollection.deleteOne({ _id: new ObjectId(id) });
+                if (result.deletedCount === 1) {
+                    res.json({ message: 'Pet deleted successfully' });
+                }
+            } catch (error) {
+                console.error('Error deleting pet:', error);
+                res.status(500).json({ message: 'An error occurred while deleting the pet' });
             }
         });
 
@@ -237,6 +288,7 @@ async function run() {
                 res.status(500).json({ message: 'An error occurred while updating the Campaign details' });
             }
         });
+
         // save a user data in db
         app.put('/user', async (req, res) => {
             const user = req.body
@@ -244,16 +296,8 @@ async function run() {
             // check if user already exists in db
             const isExist = await usersCollection.findOne(query)
             if (isExist) {
-                if (user.status === 'Requested') {
-                    // if existing user try to change his role
-                    const result = await usersCollection.updateOne(query, {
-                        $set: { status: user?.status },
-                    })
-                    return res.send(result)
-                } else {
-                    // if existing user login again
-                    return res.send(isExist)
-                }
+                return res.send(isExist)
+
             }
 
             // save user for the first time
@@ -261,7 +305,7 @@ async function run() {
             const updateDoc = {
                 $set: {
                     ...user,
-                    timestamp: Date.now(),
+                    timestamp: new Date().toLocaleDateString(),
                 },
             }
             const result = await usersCollection.updateOne(query, updateDoc, options)
@@ -317,6 +361,30 @@ async function run() {
             }
 
         });
+
+        app.put('/campaign/update', async (req, res) => {
+            const payment = req.body;
+            const { campaignId, donatedAmount } = payment;
+            const amountNumber = parseFloat(donatedAmount);
+
+            const query = {
+                _id: new ObjectId(campaignId)
+            }
+            const campaign = await campaignCollection.findOne(query);
+            const donatedAmountNumber = parseFloat(campaign.donatedAmount || 0);
+            const newDonatedAmount = amountNumber - donatedAmountNumber;
+
+            const updatedCampaign = await campaignCollection.findOneAndUpdate(
+                query,
+                { $set: { donatedAmount: newDonatedAmount.toString() } },
+                { returnOriginal: false }
+            );
+
+            res.send(updatedCampaign.value);
+
+
+        });
+
         app.get('/donors/:id', async (req, res) => {
             const id = req.params.id;
             console.log(id)
@@ -325,7 +393,56 @@ async function run() {
             res.send(result)
 
         })
-        // Send a ping to confirm a successful connection
+
+        app.get('/my-donations/:email', async (req, res) => {
+            const email = req?.params?.email;
+
+            const donations = await paymentCollection.aggregate([
+                { $match: { email } },
+                {
+                    $addFields: {
+                        campaignObjectId: { $toObjectId: "$campaignId" }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'donationCampaigns',
+                        localField: 'campaignObjectId',
+                        foreignField: '_id',
+                        as: 'campaignDetails'
+                    }
+                },
+                { $unwind: '$campaignDetails' },
+                {
+                    $project: {
+                        _id: 0,
+                        petImage: '$campaignDetails.petImage',
+                        petName: '$campaignDetails.petName',
+                        donatedAmount: '$amount',
+                        campaignId: '$campaignDetails._id',
+                        paymentId: '$_id'
+                    }
+                }
+            ]).toArray();
+            //refund 
+            app.delete('/payment/refund/:id', async (req, res) => {
+                const id = req.params.id;
+                try {
+                    const result = await paymentCollection.deleteOne({ _id: new ObjectId(id) });
+                    if (result.deletedCount === 1) {
+                        res.json({ message: 'payment deleted successfully' });
+                    }
+                } catch (error) {
+                    console.error('Error deleting pet:', error);
+                    res.status(500).json({ message: 'An error occurred while deleting the pet' });
+                }
+            });
+
+            res.send(donations);
+
+        });
+
+
         // await client.db('admin').command({ ping: 1 })
         console.log(
             'Pinged your deployment. You successfully connected to MongoDB!'
