@@ -203,7 +203,7 @@ async function run() {
             const AdoptionResult = await adoptCollection.updateOne(adoptionQuery, updateAdoptionDoc);
 
 
-            console.log(result, AdoptionResult)
+            // console.log(result, AdoptionResult)
             res.send({ result, AdoptionResult })
         })
 
@@ -232,7 +232,7 @@ async function run() {
         });
         app.get('/campaigns/:id', async (req, res) => {
             const campaignId = req?.params?.id;
-            console.log(campaignId)
+            // console.log(campaignId)
             const query = { _id: new ObjectId(campaignId) };
             const result = await campaignCollection.findOne(query);
             res.send(result)
@@ -252,14 +252,14 @@ async function run() {
 
         app.patch('/campaign/pause/:id', async (req, res) => {
             const id = req.params.id;
-            console.log(id)
+            // console.log(id)
             const filter = { _id: new ObjectId(id) };
             try {
                 const campaign = await campaignCollection.findOne(filter);
                 if (!campaign) {
                     return res.status(404).send({ error: 'Campaign not found' });
                 }
-                console.log(campaign)
+                // console.log(campaign)
                 const updatedDoc = {
                     $set: {
                         pause: !campaign.pause
@@ -413,7 +413,7 @@ async function run() {
 
         app.get('/donors/:id', async (req, res) => {
             const id = req.params.id;
-            console.log(id)
+            // console.log(id)
             const query = { campaignId: id };
             const result = await paymentCollection.find(query).toArray();
             res.send(result)
