@@ -72,7 +72,8 @@ async function run() {
             const category = req.query?.category;
             let name = req.query?.name;
             let query = { adopted: false };
-
+            const offset = parseInt(req.query?.offset) || 0;
+            const limit = parseInt(req.query?.limit) || 6;
             if (name) {
                 name = new RegExp(name, 'i');
                 query = { ...query, petName: name };
@@ -84,7 +85,11 @@ async function run() {
             const options = {
                 sort: { addedTime: -1 },
             };
-            const result = await petsCollection.find(query, options).toArray();
+
+            const result = await petsCollection.find(query, options)
+                .skip(offset)
+                .limit(limit)
+                .toArray();
             res.send(result);
         });
 
@@ -224,10 +229,16 @@ async function run() {
 
 
         app.get('/campaigns', async (req, res) => {
+            const offset = parseInt(req.query?.offset) || 0;
+            const limit = parseInt(req.query?.limit) || 6;
             const options = {
                 sort: { addedTime: -1 },
             };
-            const result = await campaignCollection.find({}, options).toArray();
+            const result = await campaignCollection.find({}, options)
+                .skip(offset)
+                .limit(limit)
+                .toArray();
+            ;
             res.send(result);
         });
         app.get('/campaigns/:id', async (req, res) => {
