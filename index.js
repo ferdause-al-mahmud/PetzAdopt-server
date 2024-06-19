@@ -334,6 +334,27 @@ async function run() {
             }
         });
 
+        app.get('/recommended-campaigns/:id', async (req, res) => {
+            const id = req.params.id;
+            const limit = 3; // Number of campaigns to return
+            try {
+                const query = {
+                    _id: { $ne: new ObjectId(id) },
+                    pause: false
+                };
+                const options = {
+                    limit: limit
+                };
+                const recommendedCampaigns = await campaignCollection.find(query, options).toArray();
+                res.send(recommendedCampaigns);
+            } catch (error) {
+                console.error('Error fetching recommended campaigns:', error);
+                res.status(500).json({ message: 'An error occurred while fetching recommended campaigns' });
+            }
+        });
+
+
+
         // save a user data in db
         app.put('/user', async (req, res) => {
             const user = req.body
