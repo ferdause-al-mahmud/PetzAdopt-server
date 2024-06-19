@@ -63,8 +63,36 @@ async function run() {
             });
         };
 
+        const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email };
+            const user = await usersCollection.findOne(query);
+            const isAdmin = user?.role === 'admin';
+            console.log('User role', user?.role);
+            if (!isAdmin) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            next();
+        }
+
+        app.get('/users/admin/:email', verifyToken, async (req, res) => {
+            const email = req.params.email;
+
+            if (email !== req.decoded.email) {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+
+            const query = { email: email };
+            const user = await usersCollection.findOne(query);
+            let admin = false;
+            if (user) {
+                admin = user?.role === 'admin';
+            }
+            res.send({ admin });
+        })
+
         //pets
-        app.get('/all-pets', async (req, res) => {
+        app.get('/all-pets', verifyToken, async (req, res) => {
             const result = await petsCollection.find().toArray();
             res.send(result);
         });
@@ -95,7 +123,7 @@ async function run() {
         });
 
 
-        app.get('/pets/:id', async (req, res) => {
+        app.get('/pets/:id', verifyToken, async (req, res) => {
             const petId = req?.params?.id;
             // console.log(petId)
             const query = { _id: new ObjectId(petId) };
@@ -103,20 +131,20 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/pets-added/:email', async (req, res) => {
+        app.get('/pets-added/:email', verifyToken, async (req, res) => {
             const email = req?.params?.email;
             const query = { adderEmail: email };
             const result = await petsCollection.find(query).toArray();
             res.send(result)
         })
         //pet adding
-        app.post('/pets', async (req, res) => {
+        app.post('/pets', verifyToken, async (req, res) => {
             const item = req.body;
             const result = await petsCollection.insertOne(item);
             res.send(result);
         });
         //pet updating
-        app.put('/pets/update/:id', async (req, res) => {
+        app.put('/pets/update/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const updatedDetails = req.body;
 
@@ -136,7 +164,7 @@ async function run() {
             }
         });
         //updating adoption status
-        app.patch('/pets/adopt/:id', async (req, res) => {
+        app.patch('/pets/adopt/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const adopt = await petsCollection.findOne(filter);
@@ -153,7 +181,7 @@ async function run() {
 
 
         //pet deleting
-        app.delete('/pets/delete/:id', async (req, res) => {
+        app.delete('/pets/delete/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             try {
                 const result = await petsCollection.deleteOne({ _id: new ObjectId(id) });
@@ -166,7 +194,7 @@ async function run() {
             }
         });
         //adopting
-        app.post('/adopts', async (req, res) => {
+        app.post('/adopts', verifyToken, async (req, res) => {
             const requestedPet = req.body;
             const query = { email: requestedPet?.email, petId: requestedPet?.petId };
 
@@ -179,7 +207,7 @@ async function run() {
                 res.status(201).send(result);
             }
         });
-        app.get('/adoption-requests/:email', async (req, res) => {
+        app.get('/adoption-requests/:email', verifyToken, async (req, res) => {
             const email = req?.params?.email;
             const query = { ownerEmail: email };
             const result = await adoptCollection.find(query).toArray();
@@ -187,7 +215,7 @@ async function run() {
         });
 
 
-        app.put('/adoption-requests/accept', async (req, res) => {
+        app.put('/adoption-requests/accept', verifyToken, async (req, res) => {
             const adoption = req.body;
             const { petId, _id } = adoption;
             const query = { _id: new ObjectId(petId) }
@@ -213,7 +241,7 @@ async function run() {
             res.send({ result, AdoptionResult })
         })
 
-        app.delete('/adoption-request/delete/:id', async (req, res) => {
+        app.delete('/adoption-request/delete/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             try {
                 const result = await adoptCollection.deleteOne({ _id: new ObjectId(id) });
@@ -231,7 +259,7 @@ async function run() {
 
         app.get('/campaigns', async (req, res) => {
             const offset = parseInt(req.query?.offset) || 0;
-            const limit = parseInt(req.query?.limit) || 6;
+            const limit = parseInt(req.query?.limit);
             const options = {
                 sort: { addedTime: -1 },
             };
@@ -242,27 +270,27 @@ async function run() {
             ;
             res.send(result);
         });
-        app.get('/campaigns/:id', async (req, res) => {
+        app.get('/campaigns/:id', verifyToken, async (req, res) => {
             const campaignId = req?.params?.id;
             // console.log(campaignId)
             const query = { _id: new ObjectId(campaignId) };
             const result = await campaignCollection.findOne(query);
             res.send(result)
         })
-        app.get('/campaigns/my-added/:email', async (req, res) => {
+        app.get('/campaigns/my-added/:email', verifyToken, async (req, res) => {
             const email = req?.params?.email;
             // console.log(campaignId)
             const query = { adderEmail: email };
             const result = await campaignCollection.find(query).toArray();
             res.send(result)
         })
-        app.post('/campaign', async (req, res) => {
+        app.post('/campaign', verifyToken, async (req, res) => {
             const campaign = req.body;
             const result = await campaignCollection.insertOne(campaign);
             res.send(result);
         });
 
-        app.patch('/campaign/pause/:id', async (req, res) => {
+        app.patch('/campaign/pause/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             // console.log(id)
             const filter = { _id: new ObjectId(id) };
@@ -286,7 +314,7 @@ async function run() {
         })
 
         //update campaign
-        app.put('/campaign/update/:id', async (req, res) => {
+        app.put('/campaign/update/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const updatedDetails = req.body;
 
@@ -327,19 +355,19 @@ async function run() {
             const result = await usersCollection.updateOne(query, updateDoc, options)
             res.send(result)
         })
-        app.get('/users/:email', async (req, res) => {
+        app.get('/users/:email', verifyToken, async (req, res) => {
             const email = req?.params?.email;
 
             const query = { email }
             const result = await usersCollection.findOne(query);
             res.send(result);
         })
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
             const result = await usersCollection.find().toArray();
             res.send(result);
         })
 
-        app.put('/user/update/:id', async (req, res) => {
+        app.put('/user/update/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req?.params?.id;
             const query = { _id: new ObjectId(id) }
             const updateDoc = {
@@ -352,7 +380,7 @@ async function run() {
         })
         //payment intent
 
-        app.post("/create-payment-intent", async (req, res) => {
+        app.post("/create-payment-intent", verifyToken, async (req, res) => {
             const { price } = req.body;
             const amount = parseInt(price * 100);
             try {
@@ -372,7 +400,7 @@ async function run() {
 
 
 
-        app.post('/payments', async (req, res) => {
+        app.post('/payments', verifyToken, async (req, res) => {
             const payment = req.body;
             const { campaignId, amount } = payment;
             const amountNumber = parseFloat(amount);
@@ -400,7 +428,7 @@ async function run() {
 
         });
 
-        app.put('/campaign/update', async (req, res) => {
+        app.put('/campaign/update', verifyToken, async (req, res) => {
             const payment = req.body;
             const { campaignId, donatedAmount } = payment;
             const amountNumber = parseFloat(donatedAmount);
@@ -423,7 +451,7 @@ async function run() {
 
         });
 
-        app.get('/donors/:id', async (req, res) => {
+        app.get('/donors/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             // console.log(id)
             const query = { campaignId: id };
@@ -432,7 +460,7 @@ async function run() {
 
         })
 
-        app.get('/my-donations/:email', async (req, res) => {
+        app.get('/my-donations/:email', verifyToken, async (req, res) => {
             const email = req?.params?.email;
 
             const donations = await paymentCollection.aggregate([
