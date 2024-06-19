@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken')
 const port = process.env.PORT || 8000
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: ['http://localhost:5173', 'https://petzadopt-7acf4.web.app'],
     credentials: true,
     optionSuccessStatus: 200,
 }
@@ -35,6 +35,7 @@ async function run() {
         const usersCollection = client.db("petzAdopt").collection("users");
         const campaignCollection = client.db("petzAdopt").collection("donationCampaigns");
         const paymentCollection = client.db("petzAdopt").collection("payments");
+        const testimonialCollection = client.db("petzAdopt").collection("testimonials");
 
 
         // jwt
@@ -479,6 +480,11 @@ async function run() {
 
         });
 
+        //testimonials
+        app.get('/testimonials', async (req, res) => {
+            const result = await testimonialCollection.find().toArray();
+            res.send(result);
+        })
 
         // await client.db('admin').command({ ping: 1 })
         console.log(
