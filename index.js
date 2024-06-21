@@ -123,7 +123,7 @@ async function run() {
         });
 
 
-        app.get('/pets/:id', verifyToken, async (req, res) => {
+        app.get('/pets/:id', async (req, res) => {
             const petId = req?.params?.id;
             // console.log(petId)
             const query = { _id: new ObjectId(petId) };
@@ -270,7 +270,7 @@ async function run() {
             ;
             res.send(result);
         });
-        app.get('/campaigns/:id', verifyToken, async (req, res) => {
+        app.get('/campaigns/:id', async (req, res) => {
             const campaignId = req?.params?.id;
             // console.log(campaignId)
             const query = { _id: new ObjectId(campaignId) };
